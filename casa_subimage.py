@@ -1,5 +1,36 @@
+import sys
 import os
 from argparse import ArgumentParser
+
+from casatasks import imsubimage, exportfits
+
+def do_subimage(input_image, output_image, x, y, xsize, ysize, pixel, fits):
+    '''
+    Make an image cutout
+
+    Keyword arguments:
+    input_image (string) -- Filename of the image
+    output_image (string) -- Destination filename of cutout
+    x, y (float) -- Central coordinates (pixel or sky in degrees)
+    xsize, ysize (float) -- Size of the cutout (pixel or sky in degrees)
+    pixel (bool) -- Whether input coordinates are in pixel coordinates
+    fits (bool) -- Whether to additionally out a fits file
+    '''
+    if pixel:
+        reg = f'box[[{int(x-xsize/2)}pix,{int(y-ysize/2)}pix],[{int(x+xsize/2)}pix,{int(y+ysize/2)}pix]]'
+    else:
+        reg = f'box[[{x-xsize/2}deg,{y-ysize/2}deg],[{x+xsize/2}deg,{y+ysize/2}deg]]'
+
+    imsubimage(imagename=input_image,
+               outfile=output_image+'.image',
+               region=reg,
+               overwrite=True)
+
+    if fits:
+        new_input = output_image+'.image'
+        if not output_image.endswith('.fits'):
+            output_image = output_image + '.fits'
+        exportfits(new_input, output_image, dropdeg=True, overwrite=True)
 
 def main():
 
@@ -19,22 +50,9 @@ def main():
     ysize = args.ysize
     fits = args.fits
 
-    if pixel:
-        reg = f'box[[{int(x-xsize/2)}pix,{int(y-ysize/2)}pix],[{int(x+xsize/2)}pix,{int(y+ysize/2)}pix]]'
-    else:
-        reg = f'box[[{x-xsize/2}deg,{y-ysize/2}deg],[{x+xsize/2}deg,{y+ysize/2}deg]]'
-
-    imsubimage(imagename=input_image,
-               outfile=output_image+'.image',
-               region=reg,
-               overwrite=True)
-
-    if fits:
-        new_input = output_image+'.image'
-        if not output_image.endswith('.fits'):
-            output_image = output_image + '.fits'
-        exportfits(new_input, output_image, dropdeg=True, overwrite=True)
-        os.system('rm *.last')
+    do_subimage(input_image, output_image, 
+                x, y, xsize, ysize, 
+                pixel, fits)
 
 def new_argument_parser():
 

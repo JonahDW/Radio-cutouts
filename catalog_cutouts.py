@@ -8,27 +8,8 @@ from astropy.io import fits
 from argparse import ArgumentParser
 from pathlib import Path
 
-def do_subimage(source, image_file, cutout_file):
-    '''
-    Call the subimage script
-    '''
-    xsize = 5*source['Maj']
-    ysize = 5*source['Maj']
-
-    casa_subimage_script = Path(__file__).parent / 'casa_subimage.py'
-    os.system(f"casa --nologfile --nologger -c {casa_subimage_script} {image_file} {cutout_file}"
-              +f" -x {source['RA']} -y {source['DEC']} --xsize {xsize} --ysize {ysize} --fits")
-
-def do_stats(source, threshold, cutout_file):
-    '''
-    Call the stats script
-    '''
-    rms = source['Isl_rms']
-
-    casa_stats_script = Path(__file__).parent / 'casa_stats.py'
-    os.system(f"casa --nologfile --nologger -c {casa_stats_script} {cutout_file}.image {threshold*rms}"
-              +f" -i {source['Source_id']} --coord {source['RA_max']} {source['DEC_max']} --plot")
-    os.system(f'rm -r {cutout_file}.image')
+from casa_subimage import do_subimage
+from casa_stats import get_stats
 
 def main():
 
@@ -37,67 +18,97 @@ def main():
 
     image_file = args.image
     catalog_file = args.catalog
+    gaul_file = args.gaul
     stats = args.stats
     threshold = args.threshold
 
     catalog = Table.read(catalog_file)
     name = catalog.meta['OBJECT'].replace("'","")
 
-    out_folder = name+'_cutouts'
+    # Create cutout folder
+    out_folder = os.path.join(os.path.dirname(catalog_file),name+'_cutouts')
     if not os.path.exists(out_folder):
         os.mkdir(out_folder)
 
-    if os.path.exists('source_stats.csv'):
-        os.system('rm source_stats.csv')
-
+    # Check if quality flag column is present
     if 'Quality_flag' in catalog.columns:
         selected_sources = catalog[catalog['Quality_flag'] == 0]
     else:
         print('Quality flag column not found, selecting all sources in the catalog')
         selected_sources = catalog
 
+    if gaul_file:
+        gaul = Table.read(gaul_file)
+        print(f'Reading in gaussian list from {gaul_file}')
+    else:
+        gaul = None
+
     if not stats:
         print(f'Making cutouts for {len(selected_sources)} sources')
         for source in selected_sources:
             cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
-            do_subimage(source, image_file, cutout_file)
+
+            do_subimage(image_file, cutout_file, source['RA'], source['DEC'], 
+                        xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+
+            os.system(f'rm -r {cutout_file}.image')
 
         os.system('rm *.last')
+        os.system('rm casa-*.log')
 
     if stats:
-        print(f'Making cutouts and measuring fluxes for {len(selected_sources)} sources')
+        print(f'Making cutouts and measuring fluxes for {len(selected_sources)} sources')\
+        # Create table with for holding the stats
+        source_table = Table(names=['Source_id','RA_mean','DEC_mean',
+                                    'Cutout_Total_flux','Cutout_flag'],
+                             dtype=[float,float,float,
+                                    float, 'S3'])
+
         for source in selected_sources:
             cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
-            do_subimage(source, image_file, cutout_file)
-            do_stats(source, cutout_file)
 
-        os.system('rm *.last')
+            do_subimage(image_file, cutout_file, x=source['RA'], y=source['DEC'], 
+                        xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
 
-        # Make sure these columns are unused
-        if 'Cutout_flag' in catalog.columns:
-            del catalog['Cutout_flag']
-            del catalog['RA_Mean']
-            del catalog['DEC_Mean']
-            del catalog['Isl_Int_flux']
+            rms = source['Isl_rms']
+            max_coord = (source['RA_max'], source['DEC_max'])
+            gaussians = None
+            if gaul:
+                gaussians = gaul[gaul['Source_id'] == source['Source_id']]
 
-        # Read in created CSV file
-        source_stats = Table.read('source_stats.csv')
-        catalog = join(catalog, source_stats, join_type='left', keys='Source_id')
+            source_stats = get_stats(cutout_file+'.image', threshold*rms, max_coord, 
+                                     source_id=source['Source_id'], plot=True,
+                                     gaussians=gaussians)
 
-        catalog[np.where(catalog['is_inmask'])]['Cutout_flag'] = 1
-        catalog[np.where(catalog['is_maxpos'])]['Cutout_flag'] = 2
-        catalog[abs(catalog['Isl_Total_flux']/catalog['Isl_Int_flux'] - 1) > 0.2]['Cutout_flag'] = 3
+            cutout_flag = ''
+            if source_stats['Isinmask'] == False:
+                cutout_flag +='M'
+            if source_stats['Ismaxpos'] == False:
+                cutout_flag += 'C'
+            if abs(source['Isl_Total_flux']/source_stats['Cutout_Total_flux'] - 1) > 0.2:
+                cutout_flag += 'F'
+
+            source_table.add_row([source_stats['Source_id'], source_stats['RA_mean'], 
+                                  source_stats['DEC_mean'], source_stats['Cutout_Total_flux'],
+                                  cutout_flag])
+
+            os.system(f'rm -r {cutout_file}.image')
+
+        # Match catalogs and write to file
+        catalog = join(catalog, source_table, join_type='left', keys='Source_id')
+        catalog = catalog.filled(np.nan)
         catalog.write(catalog_file, overwrite=True)
-
 
 def new_argument_parser():
 
     parser = ArgumentParser()
 
     parser.add_argument("image",
-                        help="""Input image.""")
+                        help="Input image.")
     parser.add_argument("catalog",
-                        help="""Input catalog""")
+                        help="Input source catalog")
+    parser.add_argument("-g", "--gaul", default=None,
+                        help="Input gaussian list catalog, only used in plotting sources")
     parser.add_argument("-s", "--stats", action='store_true',
                         help="""Measure the statistics for all 
                                 the sources and write to the catalog""")

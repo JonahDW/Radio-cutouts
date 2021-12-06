@@ -1,6 +1,6 @@
 # CASA-Poststamp
 
-This is a module for getting poststamps and statistics from CASA images, either manually or in an automated fashion. It makes use of CASA, matplotlib and some astropy routines
+This is a module for getting poststamps and statistics from CASA images, either manually or in an automated fashion. It makes use of CASA, matplotlib and some astropy routines. 
 
 ## catalog_cutouts.py
 
