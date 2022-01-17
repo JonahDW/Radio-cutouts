@@ -1,3 +1,4 @@
+import sys
 import os
 import json
 import numpy as np
@@ -18,6 +19,8 @@ def prune_mask(mask, start_x, start_y):
     Take mask and only retain the region containing
     the starting x and y coordinates
     '''
+    sys.setrecursionlimit(mask.size)
+
     def find_nearest_nonzero(matrix, x, y):
         idx = np.where(matrix > 0)
 
@@ -34,19 +37,19 @@ def prune_mask(mask, start_x, start_y):
             matrix[x,y] = 2
             if x > 0:
                 floodfill(matrix,x-1,y)
-            if x < len(matrix[y]) - 1:
+            if x < matrix.shape[0] - 1:
                 floodfill(matrix,x+1,y)
             if y > 0:
                 floodfill(matrix,x,y-1)
-            if y < len(matrix) - 1:
+            if y < matrix.shape[1] - 1:
                 floodfill(matrix,x,y+1)
             if x > 0 and y > 0:
                 floodfill(matrix,x-1,y-1)
-            if x > 0 and y < len(matrix) - 1:
+            if x > 0 and y < matrix.shape[1] - 1:
                 floodfill(matrix,x-1,y+1)
-            if x < len(matrix) -1 and y > 0:
+            if y > 0 and x < matrix.shape[0] - 1:
                 floodfill(matrix,x+1,y-1)
-            if x < len(matrix) - 1 and y < len(matrix) - 1:
+            if x < matrix.shape[0] - 1 and y < matrix.shape[1] - 1:
                 floodfill(matrix,x+1,y+1)
 
     try:
@@ -75,12 +78,12 @@ def include_ellipses(gaussians, wcs):
     wcs -- Coordinate system of the image
     '''
     if 'Gaus_id' in gaussians.colnames:
-        id_col = 'Gaus_id'
+        ids = gaussians['Gaus_id']
     else:
-        id_col = 'Source_id'
+        ids = gaussians['Source_id']
+        gaussians = [gaussians]
 
     # Get ids
-    ids = gaussians[id_col]
     increment = max(wcs.increment(format='n', type='direction')['numeric'])
 
     ell = []
@@ -89,11 +92,11 @@ def include_ellipses(gaussians, wcs):
         ell.append(Ellipse(xy = xy['numeric'][:2],
                            width = source['Min']/np.rad2deg(increment),
                            height = source['Maj']/np.rad2deg(increment),
-                           angle = -source['PA']))
+                           angle = source['PA']))
 
     return ell, ids
 
-def get_stats(input_image, threshold, coord, source_id=0, plot=False, gaussians=None):
+def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=None, gaussians=None):
     '''
     Get the stats of the source in an image
 
@@ -111,15 +114,19 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, gaussians=
     # Create mask using the threshold
     im.mask(input_image, mask='stats_mask', threshold=threshold)
 
-    # Get the maximum position
-    max_ra = np.deg2rad(float(coord[0]))
-    max_dec = np.deg2rad(float(coord[1]))
-
     ia.open(input_image)
     wcs = ia.coordsys([0,1])
-    pixel_coord = wcs.topixel([max_ra, max_dec])
-    start_x = int(pixel_coord['numeric'][0])
-    start_y = int(pixel_coord['numeric'][1])
+    if coord:
+        # Get the maximum position
+        max_ra = np.deg2rad(float(coord[0]))
+        max_dec = np.deg2rad(float(coord[1]))
+
+        pixel_coord = wcs.topixel([max_ra, max_dec])
+        start_x = int(pixel_coord['numeric'][0])
+        start_y = int(pixel_coord['numeric'][1])
+    else:
+        start_x = -1
+        start_y = -1
 
     ia.close()
 
@@ -182,6 +189,23 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, gaussians=
                              xy=xy,
                              color='m')
 
+        if source:
+            ell, source_id = include_ellipses(source, wcs)
+            for i, e in enumerate(ell):
+                plt.gca().add_artist(e)
+                e.set_facecolor('none')
+                e.set_edgecolor('b')
+                e.set_lw(1)
+
+                # Get ellipse vertices to annotate the id at the correct location
+                path = e.get_path()
+                vertices = path.vertices.copy()
+                vertices = e.get_patch_transform().transform(vertices)
+                xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
+                plt.annotate(text=source_id,
+                             xy=xy,
+                             color='b')
+
         plt.xticks([])
         plt.yticks([])
         #plt.tight_layout()
@@ -194,6 +218,8 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, gaussians=
                    'Cutout_Total_flux':image_stats['flux'][0],
                    'Isinmask':is_inmask,
                    'Ismaxpos':is_maxpos}
+    if gaussians:
+        source_attr['N_Gaus'] = len(gaussians)
     return source_attr
 
 def main():
@@ -210,9 +236,9 @@ def main():
     source_attr = get_stats(input_image, threshold, coord, source_id, plot)
 
     print(f'Measured properties for source with source id {source_id} in {input_image}: \n')
-    print(f"Total flux above threshold ({threshold:.2f}):    {source_attr['Cutout_Total_flux']}")
-    print(f"Mean RA:                                         {source_attr['RA_mean']:.6f}")
-    print(f"Mean DEC:                                        {source_attr['DEC_mean']:.6f}\n")
+    print(f"Total flux above threshold ({float(threshold):.2e}): {source_attr['Cutout_Total_flux']}")
+    print(f"Mean RA:                                             {source_attr['RA_mean']:.6f}")
+    print(f"Mean DEC:                                            {source_attr['DEC_mean']:.6f}\n")
     if source_attr['Isinmask'] == False:
         print('Mean coordinates of the source fall outside the threshold\n')
     if source_attr['Ismaxpos'] == False:

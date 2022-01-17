@@ -59,10 +59,10 @@ def main():
     if stats:
         print(f'Making cutouts and measuring fluxes for {len(selected_sources)} sources')\
         # Create table with for holding the stats
-        source_table = Table(names=['Source_id','RA_mean','DEC_mean',
-                                    'Cutout_Total_flux','Cutout_flag'],
-                             dtype=[float,float,float,
-                                    float, 'S3'])
+        source_table = Table(names=['Source_name','Source_id','RA_mean','DEC_mean',
+                                    'Cutout_Total_flux','N_Gaus','Cutout_flag'],
+                             dtype=['S30',float,float,float,
+                                    float, int, 'S3'])
 
         for source in selected_sources:
             cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
@@ -77,8 +77,8 @@ def main():
                 gaussians = gaul[gaul['Source_id'] == source['Source_id']]
 
             source_stats = get_stats(cutout_file+'.image', threshold*rms, max_coord, 
-                                     source_id=source['Source_id'], plot=True,
-                                     gaussians=gaussians)
+                                     source_id=int(source['Source_id']), plot=True,
+                                     source=source, gaussians=gaussians)
 
             cutout_flag = ''
             if source_stats['Isinmask'] == False:
@@ -88,16 +88,21 @@ def main():
             if abs(source['Isl_Total_flux']/source_stats['Cutout_Total_flux'] - 1) > 0.2:
                 cutout_flag += 'F'
 
-            source_table.add_row([source_stats['Source_id'], source_stats['RA_mean'], 
-                                  source_stats['DEC_mean'], source_stats['Cutout_Total_flux'],
-                                  cutout_flag])
+            if gaul:
+                source_table.add_row([source['Source_name'], source_stats['Source_id'],
+                                      source_stats['RA_mean'], source_stats['DEC_mean'],
+                                      source_stats['Cutout_Total_flux'],
+                                      source_stats['N_Gaus'], cutout_flag])
+            else:
+                source_table.add_row([source['Source_name'], source_stats['Source_id'],
+                                      source_stats['RA_mean'], source_stats['DEC_mean'],
+                                      source_stats['Cutout_Total_flux'], cutout_flag])
 
             os.system(f'rm -r {cutout_file}.image')
 
-        # Match catalogs and write to file
-        catalog = join(catalog, source_table, join_type='left', keys='Source_id')
-        catalog = catalog.filled(np.nan)
-        catalog.write(catalog_file, overwrite=True)
+        # Write to file
+        outfile = os.path.join(out_folder,'source_cutout_stats.csv')
+        source_table.write(outfile, overwrite=True)
 
 def new_argument_parser():
 
