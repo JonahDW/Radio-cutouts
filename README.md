@@ -22,6 +22,14 @@ optional arguments:
                         default=3.0)
 ```
 
+## visual_classification.py
+
+Script that can be ran after `catalog_cutouts.py` in order to visually inspect the cutouts and assign flags indicating the quality of the source and how well it is represented by the Gaussian catalog. Input is simply the directory containing cutouts files as well as the `source_cutout_stats.csv` file which should have been created by `catalog_cutouts.py`.
+
+```
+usage: python visual_classification.py cutout_dir
+```
+
 ## casa_subimage.py
 
 Make a subimage in CASA. Pass coordinates and size, in either pixel or sky coordinates. Standard output is another CASA image, but this can be converted to fits.
