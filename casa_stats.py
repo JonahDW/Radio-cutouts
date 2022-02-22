@@ -96,7 +96,117 @@ def include_ellipses(gaussians, wcs):
 
     return ell, ids
 
-def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=None, gaussians=None):
+def plot_image(input_image, threshold, mask_2d, x_cent, y_cent, wcs, gaussians=None, source=None):
+    ia = ct.image()
+
+    ia.open(input_image)
+    image = np.squeeze(ia.getregion())
+    ia.close()
+
+    fig = plt.figure()
+    fig.add_subplot(111)
+
+    plt.imshow(image.T, interpolation='none', origin='lower',
+               norm=TwoSlopeNorm(vcenter=float(threshold)),
+               cmap='jet')
+    plt.contour(mask_2d.T, colors='k', levels=[0,1], linewidths=1)
+    plt.scatter(x_cent, y_cent, color='w', marker='x', s=5, zorder=2)
+
+    if gaussians:
+        ell, ids = include_ellipses(gaussians, wcs)
+        for i, e in enumerate(ell):
+            plt.gca().add_artist(e)
+            e.set_facecolor('none')
+            e.set_edgecolor('m')
+            e.set_lw(1)
+
+            # Get ellipse vertices to annotate the id at the correct location
+            path = e.get_path()
+            vertices = path.vertices.copy()
+            vertices = e.get_patch_transform().transform(vertices)
+            xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
+            plt.annotate(text=ids[i],
+                         xy=xy,
+                         color='m')
+
+    if source:
+        ell, source_id = include_ellipses(source, wcs)
+        for i, e in enumerate(ell):
+            plt.gca().add_artist(e)
+            e.set_facecolor('none')
+            e.set_edgecolor('b')
+            e.set_lw(1)
+
+            # Get ellipse vertices to annotate the id at the correct location
+            path = e.get_path()
+            vertices = path.vertices.copy()
+            vertices = e.get_patch_transform().transform(vertices)
+            xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
+            plt.annotate(text=source_id,
+                         xy=xy,
+                         color='b')
+
+    plt.xticks([])
+    plt.yticks([])
+    #plt.tight_layout()
+    plt.savefig(input_image.split('.')[0]+'.png')
+    plt.close()
+
+def plot_alpha_image(input_image, mask_2d, x_cent, y_cent, wcs, gaussians=None, source=None):
+    ia = ct.image()
+
+    ia.open(input_image)
+    image = np.squeeze(ia.getregion())
+    ia.close()
+
+    fig = plt.figure()
+    fig.add_subplot(111)
+
+    plt.imshow(image.T, interpolation='none', origin='lower',
+               vmin=-3, vmax=3, cmap='coolwarm')
+    plt.contour(mask_2d.T, colors='k', levels=[0,1], linewidths=1)
+    plt.scatter(x_cent, y_cent, color='w', marker='x', s=5, zorder=2)
+
+    if gaussians:
+        ell, ids = include_ellipses(gaussians, wcs)
+        for i, e in enumerate(ell):
+            plt.gca().add_artist(e)
+            e.set_facecolor('none')
+            e.set_edgecolor('m')
+            e.set_lw(1)
+
+            # Get ellipse vertices to annotate the id at the correct location
+            path = e.get_path()
+            vertices = path.vertices.copy()
+            vertices = e.get_patch_transform().transform(vertices)
+            xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
+            plt.annotate(text=ids[i],
+                         xy=xy,
+                         color='m')
+
+    if source:
+        ell, source_id = include_ellipses(source, wcs)
+        for i, e in enumerate(ell):
+            plt.gca().add_artist(e)
+            e.set_facecolor('none')
+            e.set_edgecolor('g')
+            e.set_lw(1)
+
+            # Get ellipse vertices to annotate the id at the correct location
+            path = e.get_path()
+            vertices = path.vertices.copy()
+            vertices = e.get_patch_transform().transform(vertices)
+            xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
+            plt.annotate(text=source_id,
+                         xy=xy,
+                         color='b')
+
+    plt.xticks([])
+    plt.yticks([])
+    plt.savefig(input_image.split('.')[0]+'.png')
+    plt.close()
+
+def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=None, gaussians=None, alpha_image=None):
     '''
     Get the stats of the source in an image
 
@@ -107,6 +217,7 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=Non
     source_id (string) -- Source id to associate source with
     plot (bool) -- Output plot with the source, threshold, and optionally Gaussians
     gaussians (table object) -- List of Gaussians associated with the source
+    alpha_image (string) -- If specified, measure spectral index from this file
     '''
     im = ct.imager()
     ia = ct.image()
@@ -146,7 +257,7 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=Non
 
     # Open image and get center of mass
     ia.open(input_image)
-    image = ia.getregion()[:,:,0,0]
+    image = np.squeeze(ia.getregion())
 
     valid_pix = np.where(mask_2d)
     x_cent = np.average(valid_pix[0], weights=image[valid_pix])
@@ -155,6 +266,7 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=Non
     center_of_mass = ia.toworld([x_cent,y_cent], 'n')
     ra_deg = np.rad2deg(center_of_mass['numeric'][0])
     dec_deg = np.rad2deg(center_of_mass['numeric'][1])
+    ia.close()
 
     is_inmask = bool(mask_2d[int(x_cent),int(y_cent)])
     is_maxpos = ((start_x - image_stats['maxpos'][0])**2
@@ -162,55 +274,17 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=Non
 
     os.system('rm -r stats_mask')
 
+    if alpha_image:
+        # Get spectral index value from image
+        ia.open(alpha_image)
+        alpha = np.squeeze(ia.getregion())
+        mean_alpha = np.average(alpha[valid_pix], weights=image[valid_pix])
+        ia.close()
+
     if plot:
-        fig = plt.figure()
-        fig.add_subplot(111)
-
-        plt.imshow(image.T, interpolation='none', origin='lower',
-                   norm=TwoSlopeNorm(vcenter=float(threshold)),
-                   cmap='jet')
-        plt.contour(mask_2d.T, colors='k', levels=[0,1], linewidths=1)
-        plt.scatter(x_cent, y_cent, color='w', marker='x', s=5, zorder=2)
-
-        if gaussians:
-            ell, ids = include_ellipses(gaussians, wcs)
-            for i, e in enumerate(ell):
-                plt.gca().add_artist(e)
-                e.set_facecolor('none')
-                e.set_edgecolor('m')
-                e.set_lw(1)
-
-                # Get ellipse vertices to annotate the id at the correct location
-                path = e.get_path()
-                vertices = path.vertices.copy()
-                vertices = e.get_patch_transform().transform(vertices)
-                xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
-                plt.annotate(text=ids[i],
-                             xy=xy,
-                             color='m')
-
-        if source:
-            ell, source_id = include_ellipses(source, wcs)
-            for i, e in enumerate(ell):
-                plt.gca().add_artist(e)
-                e.set_facecolor('none')
-                e.set_edgecolor('b')
-                e.set_lw(1)
-
-                # Get ellipse vertices to annotate the id at the correct location
-                path = e.get_path()
-                vertices = path.vertices.copy()
-                vertices = e.get_patch_transform().transform(vertices)
-                xy = (vertices[0][0]-0.5, vertices[0][1]+0.5)
-                plt.annotate(text=source_id,
-                             xy=xy,
-                             color='b')
-
-        plt.xticks([])
-        plt.yticks([])
-        #plt.tight_layout()
-        plt.savefig(input_image.split('.')[0]+'.png')
-        plt.close()
+        plot_image(input_image, threshold, mask_2d, x_cent, y_cent, wcs, gaussians, source)
+        if alpha_image:
+            plot_alpha_image(alpha_image, mask_2d, x_cent, y_cent, wcs, gaussians, source)
 
     source_attr = {'Source_id':source_id,
                    'RA_mean': ra_deg,
@@ -220,6 +294,9 @@ def get_stats(input_image, threshold, coord, source_id=0, plot=False, source=Non
                    'Ismaxpos':is_maxpos}
     if gaussians:
         source_attr['N_Gaus'] = len(gaussians)
+    if alpha_image:
+        source_attr['Cutout_Spectral_index'] = mean_alpha
+
     return source_attr
 
 def main():

@@ -7,14 +7,19 @@ This is a module for getting poststamps and statistics from CASA images, either 
 Script that wraps around the `casa_subimage.py` and `casa_stats.py` scripts in the module to create cutouts and measure statistics of sources from a catalog. If a 'Quality_flag' column is present in the catalog this is used to determine which sources are selected, sources with a quality flag of 0 will be measured. 
 
 ```
-usage: catalog_cutouts.py [-h] [-s] [-t THRESHOLD] image catalog
+usage: catalog_cutouts.py [-h] [-a ALPHA_IMAGE] [-g GAUL] [-s] [-t THRESHOLD]
+                          image catalog
 
 positional arguments:
   image                 Input image.
-  catalog               Input catalog
+  catalog               Input source catalog
 
 optional arguments:
   -h, --help            show this help message and exit
+  -a ALPHA_IMAGE, --alpha_image ALPHA_IMAGE
+                        Spectral index image
+  -g GAUL, --gaul GAUL  Input gaussian list catalog, only used in plotting
+                        sources
   -s, --stats           Measure the statistics for all the sources and write
                         to the catalog
   -t THRESHOLD, --threshold THRESHOLD
@@ -28,6 +33,32 @@ Script that can be ran after `catalog_cutouts.py` in order to visually inspect t
 
 ```
 usage: python visual_classification.py cutout_dir
+```
+
+## cutout_corrections.py
+
+Script that can be ran on a table containing the columns in the `source_cutout_stats.csv` file, and some specified flux or spectral index column. It will correct these columns according to the classification specified in the `Cutout_class`.
+
+```
+usage: cutout_corrections.py [-h] [-f FLUX_COL] [-a ALPHA_COL] [--reset_flux]
+                             [--reset_alpha]
+                             catalog
+
+positional arguments:
+  catalog               Input catalog to correct spectral index and flux
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FLUX_COL, --flux_col FLUX_COL
+                        Flux column for to apply flux correction on (default =
+                        none, don't apply flux corrections)
+  -a ALPHA_COL, --alpha_col ALPHA_COL
+                        Spectral index column for to apply flux correction on
+                        (default = none, don't apply flux corrections)
+  --reset_flux          Reset flux column to their original values before
+                        applying corrections.
+  --reset_alpha         Reset alpha column to their original values before
+                        applying corrections.
 ```
 
 ## casa_subimage.py

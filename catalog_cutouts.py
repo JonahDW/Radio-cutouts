@@ -18,6 +18,7 @@ def main():
 
     image_file = args.image
     catalog_file = args.catalog
+    alpha_file = args.alpha_image
     gaul_file = args.gaul
     stats = args.stats
     threshold = args.threshold
@@ -53,22 +54,35 @@ def main():
 
             os.system(f'rm -r {cutout_file}.image')
 
-        os.system('rm *.last')
-        os.system('rm casa-*.log')
+            if alpha_file:
+                cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_')+'_alpha')
+
+                do_subimage(alpha_file, cutout_file, source['RA'], source['DEC'],
+                            xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+
+                os.system(f'rm -r {cutout_file}.image')
+
 
     if stats:
         print(f'Making cutouts and measuring fluxes for {len(selected_sources)} sources')\
         # Create table with for holding the stats
-        source_table = Table(names=['Source_name','Source_id','RA_mean','DEC_mean',
-                                    'Cutout_Total_flux','N_Gaus','Cutout_flag'],
-                             dtype=['S30',float,float,float,
-                                    float, int, 'S3'])
 
+        all_stats = []
         for source in selected_sources:
             cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
 
             do_subimage(image_file, cutout_file, x=source['RA'], y=source['DEC'], 
                         xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+
+            if alpha_file:
+                alpha_cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_')+'_alpha')
+
+                do_subimage(alpha_file, alpha_cutout_file, source['RA'], source['DEC'],
+                            xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+
+                alpha_cutout_file = alpha_cutout_file+'.image'
+            else:
+                alpha_cutout_file = None
 
             rms = source['Isl_rms']
             max_coord = (source['RA_max'], source['DEC_max'])
@@ -78,7 +92,8 @@ def main():
 
             source_stats = get_stats(cutout_file+'.image', threshold*rms, max_coord, 
                                      source_id=int(source['Source_id']), plot=True,
-                                     source=source, gaussians=gaussians)
+                                     source=source, gaussians=gaussians,
+                                     alpha_image=alpha_cutout_file)
 
             cutout_flag = ''
             if source_stats['Isinmask'] == False:
@@ -88,17 +103,18 @@ def main():
             if abs(source['Isl_Total_flux']/source_stats['Cutout_Total_flux'] - 1) > 0.2:
                 cutout_flag += 'F'
 
-            if gaul:
-                source_table.add_row([source['Source_name'], source_stats['Source_id'],
-                                      source_stats['RA_mean'], source_stats['DEC_mean'],
-                                      source_stats['Cutout_Total_flux'],
-                                      source_stats['N_Gaus'], cutout_flag])
-            else:
-                source_table.add_row([source['Source_name'], source_stats['Source_id'],
-                                      source_stats['RA_mean'], source_stats['DEC_mean'],
-                                      source_stats['Cutout_Total_flux'], cutout_flag])
+            source_stats['Source_name'] = source['Source_name']
+            # Change dictionary to include new flag
+            source_stats['Cutout_flag'] = cutout_flag
+            source_stats.pop('Isinmask')
+            source_stats.pop('Ismaxpos')
+            all_stats.append(source_stats)
 
             os.system(f'rm -r {cutout_file}.image')
+            if alpha_file:
+                os.system(f'rm -r {alpha_cutout_file}')
+
+        source_table = Table(rows=all_stats)
 
         # Write to file
         outfile = os.path.join(out_folder,'source_cutout_stats.csv')
@@ -112,6 +128,8 @@ def new_argument_parser():
                         help="Input image.")
     parser.add_argument("catalog",
                         help="Input source catalog")
+    parser.add_argument("-a", "--alpha_image", default=None,
+                        help="Spectral index image")
     parser.add_argument("-g", "--gaul", default=None,
                         help="Input gaussian list catalog, only used in plotting sources")
     parser.add_argument("-s", "--stats", action='store_true',
