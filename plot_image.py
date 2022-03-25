@@ -26,6 +26,7 @@ def main():
     image_file = args.image_file
     percentile = args.percentile
     cmap = args.cmap
+    contours = args.contours
     dpi = args.dpi
 
     im_id = image_file.split('.')[0]
@@ -33,10 +34,17 @@ def main():
     hdu = fits.open(image_file)[0]
     wcs = WCS(hdu.header)
 
-    norm = ImageNormalize(hdu.data*1e3, interval=PercentileInterval(percentile), stretch=AsinhStretch())
+    height, width = hdu.data.shape[:2]
+    figsize = 10 * width / float(dpi), 10 * height / float(dpi)
 
+    fig = plt.figure(figsize=figsize)
     ax = plt.subplot(projection=wcs)
-    im = ax.imshow(hdu.data*1e3, origin='lower', cmap=cmap, norm=norm)
+
+    norm = ImageNormalize(hdu.data*1e3, interval=PercentileInterval(percentile), vmin=0, stretch=AsinhStretch())
+    im = ax.imshow(hdu.data*1e3, origin='lower', interpolation='none', cmap=cmap, norm=norm)
+
+    if contours:
+        ax.contour(hdu.data, levels=contours, cmap='gray')
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05, axes_class=maxes.Axes)
@@ -47,7 +55,7 @@ def main():
     ax.set_xlabel('RA (J2000)')
     ax.set_ylabel('DEC (J2000)')
 
-    plt.savefig(im_id+'.png', dpi=dpi, bbox_inches='tight')
+    plt.savefig(im_id+'.png',bbox_inches='tight', dpi=dpi)
 
 def new_argument_parser():
 
@@ -59,6 +67,8 @@ def new_argument_parser():
                         help="Percentile interval to use for normalization (default=99.9).")
     parser.add_argument("--cmap", default='gist_heat',
                         help="What colormap to use (default=gist_heat)")
+    parser.add_argument("--contours", nargs="+", default=None,
+                        help="Add contours to the image, insert values as a list")
     parser.add_argument("--dpi", default=300,
                         help="Dpi of the image (default=300).")
     return parser

@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from casa_subimage import do_subimage
-from casa_stats import get_stats
+from casa_stats import Image
 
 def main():
 
@@ -90,10 +90,10 @@ def main():
             if gaul:
                 gaussians = gaul[gaul['Source_id'] == source['Source_id']]
 
-            source_stats = get_stats(cutout_file+'.image', threshold*rms, max_coord, 
-                                     source_id=int(source['Source_id']), plot=True,
-                                     source=source, gaussians=gaussians,
-                                     alpha_image=alpha_cutout_file)
+            image = Image(cutout_file+'.image', threshold*rms, start_coordinates=max_coord,
+                          source_id=int(source['Source_id']))
+            source_stats = image.get_stats(plot=True, source=source, gaussians=gaussians,
+                                           alpha_image=alpha_cutout_file)
 
             cutout_flag = ''
             if source_stats['Isinmask'] == False:
