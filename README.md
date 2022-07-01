@@ -35,32 +35,6 @@ Script that can be ran after `catalog_cutouts.py` in order to visually inspect t
 usage: python visual_classification.py cutout_dir
 ```
 
-## cutout_corrections.py
-
-Script that can be ran on a table containing the columns in the `source_cutout_stats.csv` file, and some specified flux or spectral index column. It will correct these columns according to the classification specified in the `Cutout_class`.
-
-```
-usage: cutout_corrections.py [-h] [-f FLUX_COL] [-a ALPHA_COL] [--reset_flux]
-                             [--reset_alpha]
-                             catalog
-
-positional arguments:
-  catalog               Input catalog to correct spectral index and flux
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -f FLUX_COL, --flux_col FLUX_COL
-                        Flux column for to apply flux correction on (default =
-                        none, don't apply flux corrections)
-  -a ALPHA_COL, --alpha_col ALPHA_COL
-                        Spectral index column for to apply flux correction on
-                        (default = none, don't apply flux corrections)
-  --reset_flux          Reset flux column to their original values before
-                        applying corrections.
-  --reset_alpha         Reset alpha column to their original values before
-                        applying corrections.
-```
-
 ## casa_subimage.py
 
 Make a subimage in CASA. Pass coordinates and size, in either pixel or sky coordinates. Standard output is another CASA image, but this can be converted to fits.
@@ -106,24 +80,4 @@ optional arguments:
   -i ID, --id ID        Optional source id to keep track of the stats
                         (default=0)
   --plot                Plot the source along with threshold
-```
-
-## plot_image.py
-
-In case you want to make a pretty plot of a source. Should in principle work on any fits image you give it.
-
-```
-usage: plot_image.py [-h] [--percentile PERCENTILE] [--cmap CMAP] [--dpi DPI]
-                     image_file
-
-positional arguments:
-  image_file            Input image in fits format.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --percentile PERCENTILE
-                        Percentile interval to use for normalization
-                        (default=99.9).
-  --cmap CMAP           What colormap to use (default=gist_heat)
-  --dpi DPI             Dpi of the image (default=300).
 ```

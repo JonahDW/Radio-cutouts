@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.patches import Ellipse
+
+from collections import OrderedDict
 from argparse import ArgumentParser
 
 from casatasks import imstat, imhead
@@ -222,7 +224,7 @@ class Image:
 
         plt.xlabel('dRA (arcsec)')
         plt.ylabel('dDEC (arcsec)')
-        plt.savefig(self.image_file.split('.')[0]+'.png')
+        plt.savefig(self.image_file.rsplit('.',1)[0]+'.png')
         plt.close()
 
     def plot_alpha_image(self, alpha_image, mask_2d, gaussians=None, source=None):
@@ -302,7 +304,7 @@ class Image:
 
         plt.xlabel('dRA (arcsec)')
         plt.ylabel('dDEC (arcsec)')
-        plt.savefig(alpha_image.split('.')[0]+'.png')
+        plt.savefig(alpha_image.rsplit('.',1)[0]+'.png')
         plt.close()
 
     def get_stats(self, plot=False, source=None, gaussians=None, alpha_image=None):
@@ -365,12 +367,13 @@ class Image:
             if alpha_image:
                 self.plot_alpha_image(alpha_image, mask_2d, gaussians, source)
 
-        source_attr = {'Source_id':         self.source_id,
-                       'RA_mean':           ra_deg,
-                       'DEC_mean':          dec_deg,
-                       'Cutout_Total_flux': image_stats['flux'][0],
-                       'Isinmask':          is_inmask,
-                       'Ismaxpos':          is_maxpos}
+        source_attr = OrderedDict()
+        source_attr['Source_id']         = self.source_id
+        source_attr['RA_mean']           = ra_deg
+        source_attr['DEC_mean']          = dec_deg
+        source_attr['Cutout_Total_flux'] = image_stats['flux'][0]
+        source_attr['Isinmask']          = is_inmask,
+        source_attr['Ismaxpos']          = is_maxpos
         if gaussians:
             source_attr['N_Gaus'] = len(gaussians)
         if alpha_image:

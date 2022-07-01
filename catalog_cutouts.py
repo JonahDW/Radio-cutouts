@@ -47,7 +47,10 @@ def main():
     if not stats:
         print(f'Making cutouts for {len(selected_sources)} sources')
         for source in selected_sources:
-            cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
+
+            # Get correct filenames for sources
+            source_filename = source['Source_name'].replace(' ','_')
+            cutout_file = os.path.join(out_folder,source_filename)
 
             do_subimage(image_file, cutout_file, source['RA'], source['DEC'], 
                         xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
@@ -55,7 +58,7 @@ def main():
             os.system(f'rm -r {cutout_file}.image')
 
             if alpha_file:
-                cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_')+'_alpha')
+                cutout_file = os.path.join(out_folder,source_filename+'_alpha')
 
                 do_subimage(alpha_file, cutout_file, source['RA'], source['DEC'],
                             xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
@@ -69,13 +72,16 @@ def main():
 
         all_stats = []
         for source in selected_sources:
-            cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_'))
+
+            # Get correct filenames for sources
+            source_filename = source['Source_name'].replace(' ','_')
+            cutout_file = os.path.join(out_folder,source_filename)
 
             do_subimage(image_file, cutout_file, x=source['RA'], y=source['DEC'], 
                         xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
 
             if alpha_file:
-                alpha_cutout_file = os.path.join(out_folder,source['Source_name'].replace(' ','_')+'_alpha')
+                alpha_cutout_file = os.path.join(out_folder,source_filename+'_alpha')
 
                 do_subimage(alpha_file, alpha_cutout_file, source['RA'], source['DEC'],
                             xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
@@ -106,8 +112,8 @@ def main():
             source_stats['Source_name'] = source['Source_name']
             # Change dictionary to include new flag
             source_stats['Cutout_flag'] = cutout_flag
-            source_stats.pop('Isinmask')
-            source_stats.pop('Ismaxpos')
+            del source_stats['Isinmask']
+            del source_stats['Ismaxpos']
             all_stats.append(source_stats)
 
             os.system(f'rm -r {cutout_file}.image')
@@ -116,8 +122,15 @@ def main():
 
         source_table = Table(rows=all_stats)
 
-        # Write to file
         outfile = os.path.join(out_folder,'source_cutout_stats.csv')
+        # Preserve classification if it exists
+        if os.path.exists(outfile):
+            old_table = Table.read(outfile)
+            if 'Cutout_class' in old_table.colnames and len(old_table) == len(source_table):
+                print("Preserving classification from old table")
+                source_table['Cutout_class'] = old_table['Cutout_class']
+
+        # Write to file
         source_table.write(outfile, overwrite=True)
 
 def new_argument_parser():
