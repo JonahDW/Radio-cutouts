@@ -32,7 +32,23 @@ optional arguments:
 Script that can be ran after `catalog_cutouts.py` in order to visually inspect the cutouts and assign flags indicating the quality of the source and how well it is represented by the Gaussian catalog. Input is simply the directory containing cutouts files as well as the `source_cutout_stats.csv` file which should have been created by `catalog_cutouts.py`.
 
 ```
-usage: python visual_classification.py cutout_dir
+usage: visual_classification.py [-h] [--append_results [APPEND_RESULTS]]
+                                cutout_dir result_name
+
+positional arguments:
+  cutout_dir            Directory containing source cutouts
+  result_name           Unique name to write results to i.e.
+                        jonah_classification. Results will be written to a csv
+                        file with that name, if it already exists it will be
+                        overwritten.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --append_results [APPEND_RESULTS]
+                        Append results to the source cutout stats csv file. If
+                        another file than the result_name file is specified
+                        (which exists in cutout_dir) this file is appended
+                        instead and visual inspection is skipped.
 ```
 
 ## casa_subimage.py
