@@ -409,14 +409,14 @@ def new_argument_parser():
 
     parser = ArgumentParser()
 
-    parser.add_argument("in_image",
+    parser.add_argument("in_image", type=str,
                         help="Input image.")
-    parser.add_argument("threshold",
+    parser.add_argument("threshold", type=float,
                         help="Perform statistics on everything above threshold (Jy/beam).")
     parser.add_argument("--coord", nargs='+', default=None,
                         help="""Source coordinates (RA, DEC) of the source,
                                 input as RA DEC (default=center of the image)""")
-    parser.add_argument("-i", "--id", default=0,
+    parser.add_argument("-i", "--id", default=0, type=int,
                         help="Optional source id to keep track of the stats (default=0)")
     parser.add_argument("--plot", action='store_true',
                         help="Plot the source along with threshold")

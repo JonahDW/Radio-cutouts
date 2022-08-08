@@ -137,9 +137,9 @@ def new_argument_parser():
 
     parser = ArgumentParser()
 
-    parser.add_argument("image",
+    parser.add_argument("image", type=str,
                         help="Input image.")
-    parser.add_argument("catalog",
+    parser.add_argument("catalog", type=str,
                         help="Input source catalog")
     parser.add_argument("-a", "--alpha_image", default=None,
                         help="Spectral index image")
@@ -148,7 +148,7 @@ def new_argument_parser():
     parser.add_argument("-s", "--stats", action='store_true',
                         help="""Measure the statistics for all 
                                 the sources and write to the catalog""")
-    parser.add_argument("-t", "--threshold", default=3.0,
+    parser.add_argument("-t", "--threshold", default=3.0, type=float,
                         help="Threshold for measuring statistics to use (in sigma, default=3.0)")
 
     return parser

@@ -150,9 +150,9 @@ def new_argument_parser():
 
     parser = ArgumentParser()
 
-    parser.add_argument("cutout_dir", 
+    parser.add_argument("cutout_dir", type=str,
                         help="Directory containing source cutouts")
-    parser.add_argument("result_name",
+    parser.add_argument("result_name", type=str,
                         help="""Unique name to write results to i.e. jonah_classification.
                                 Results will be written to a csv file with that name, if it 
                                 already exists it will be overwritten.""")
