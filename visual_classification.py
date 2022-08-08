@@ -2,11 +2,12 @@ import os
 import sys
 
 import numpy as np
-
-from astropy.table import Table, Column
+from astropy.table import Table, join
 
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, CheckButtons
+
+from argparse import ArgumentParser
 
 class Classification():
 
@@ -95,20 +96,72 @@ def make_cutout_button(plotfile, classification):
     plt.show()
 
 def main():
-    cutout_folder = sys.argv[1]
 
-    source_stats = Table.read(os.path.join(cutout_folder, 'source_cutout_stats.csv'))
+    parser = new_argument_parser()
+    args = parser.parse_args()
+
+    cutout_folder = args.cutout_dir
+    result_name = args.result_name
+    append_results = args.append_results
+
+    source_stats_file = os.path.join(cutout_folder, 'source_cutout_stats.csv')
+    source_stats = Table.read(source_stats_file)
+
+    # If append_results is a filename, read in and write results to source cutout stats
+    if isinstance(append_results, str):
+        results_file = os.path.join(cutout_folder, append_results)
+        if os.path.exists(results_file):
+            results = Table.read(results_file)
+            if 'Cutout_class' in source_stats.colnames:
+                source_stats.remove_column('Cutout_class')
+            source_stats = join(source_stats, results, keys='Source_name')
+            source_stats.write(source_stats_file, overwrite=True)
+        else:
+            print(f'Specified results file {append_results} not found')
+        sys.exit()
+
+    # Do visual classification of sources
     classification = Classification()
-
+    source_names = []
     for source in source_stats:
+        source_names.append(source['Source_name'])
         source_file = os.path.join(cutout_folder, source['Source_name'].replace(' ','_')+'.png')
         make_cutout_button(source_file, classification)
 
+    # Put results in table and write to result file
+    results = Table()
     flags = classification.get_results()
-    source_stats.add_column(flags, name='Cutout_class')
+    results['Source_name'] = source_names
+    results['Cutout_class'] = flags
+    if not result_name.endswith('.csv'):
+        result_name = result_name+'.csv'
 
-    source_stats.write(os.path.join(cutout_folder, 'source_cutout_stats.csv'), overwrite=True)
+    result_file = os.path.join(cutout_folder, result_name)
+    results.write(result_file, overwrite=True)
 
+    # Put results in the source stats file
+    if append_result:
+        if 'Cutout_class' in source_stats.colnames:
+            source_stats.remove_column('Cutout_class')
+        source_stats = join(source_stats, results, keys='Source_name')
+        source_stats.write(source_stats_file, overwrite=True)
+
+def new_argument_parser():
+
+    parser = ArgumentParser()
+
+    parser.add_argument("cutout_dir", 
+                        help="Directory containing source cutouts")
+    parser.add_argument("result_name",
+                        help="""Unique name to write results to i.e. jonah_classification.
+                                Results will be written to a csv file with that name, if it 
+                                already exists it will be overwritten.""")
+    parser.add_argument("--append_results", nargs="?", const=True,
+                        help="""Append results to the source cutout stats csv file. If another
+                                file than the result_name file is specified (which exists in cutout_dir) 
+                                this file is appended instead and visual inspection is skipped.""")
+
+    return parser
 
 if __name__ == '__main__':
     main()

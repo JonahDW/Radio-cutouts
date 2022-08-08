@@ -40,7 +40,7 @@ def main():
     input_image = args.in_image
 
     output_image = args.out_image
-    output_image = output_image.split('.')[0]
+    output_image = output_image.rsplit('.',1)[0]
 
     pixel = args.pixel
     x = args.x
