@@ -114,11 +114,11 @@ def main():
             results = Table.read(results_file)
             if 'Cutout_class' in source_stats.colnames:
                 source_stats.remove_column('Cutout_class')
-            source_stats = join(source_stats, results, keys='Source_name')
+            source_stats = join(source_stats, results, join_type='left', keys='Source_name')
             source_stats.write(source_stats_file, overwrite=True)
+            sys.exit()
         else:
-            print(f'Specified results file {append_results} not found')
-        sys.exit()
+            print(f'Specified results file {append_results} not found, starting classification')
 
     # Do visual classification of sources
     classification = Classification()
@@ -140,10 +140,10 @@ def main():
     results.write(result_file, overwrite=True)
 
     # Put results in the source stats file
-    if append_result:
+    if append_results:
         if 'Cutout_class' in source_stats.colnames:
             source_stats.remove_column('Cutout_class')
-        source_stats = join(source_stats, results, keys='Source_name')
+        source_stats = join(source_stats, results, join_type='left', keys='Source_name')
         source_stats.write(source_stats_file, overwrite=True)
 
 def new_argument_parser():

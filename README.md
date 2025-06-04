@@ -1,10 +1,42 @@
-# CASA-Poststamp
+# Radio-cutouts
 
 This is a module for getting poststamps and statistics from CASA images, either manually or in an automated fashion. It makes use of CASA, matplotlib and some astropy routines. 
 
+## subimage.py
+
+Simple script to make cutouts. Make one or multiple subimages from an image, using either CASA or Astropy. Coordinates and size can be given in either pixel or sky coordinates, or a (DS9) region file can be specified.
+
+```
+usage: subimage.py [-h] [--out_image [OUT_IMAGE [OUT_IMAGE ...]]]
+                   [--regions REGIONS] [--casa] [--pixel] [-x X [X ...]]
+                   [-y Y [Y ...]] [--xsize XSIZE [XSIZE ...]]
+                   [--ysize YSIZE [YSIZE ...]] [--fits]
+                   in_image
+
+positional arguments:
+  in_image              Input image, either CASA or fits format.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --out_image [OUT_IMAGE [OUT_IMAGE ...]]
+                        Name(s) of the output cutout image(s).
+  --regions REGIONS     Region file to read from. Ignores all other position
+                        and size options
+  --casa                Whether to use casa functionality (otherwise astropy)
+  --pixel               If this option is selected, input should be given in
+                        pixel coordinates (default=sky coordinates).
+  -x X [X ...]          RA/X central coordinate(s).
+  -y Y [Y ...]          DEC/Y central coordinate(s).
+  --xsize XSIZE [XSIZE ...]
+                        Size(s) of image(s) in RA/X.
+  --ysize YSIZE [YSIZE ...]
+                        Size(s) of image(s) in DEC/Y.
+  --fits                Store the output image(s) as a fits file.
+```
+
 ## catalog_cutouts.py
 
-Script that wraps around the `casa_subimage.py` and `casa_stats.py` scripts in the module to create cutouts and measure statistics of sources from a catalog. If a 'Quality_flag' column is present in the catalog this is used to determine which sources are selected, sources with a quality flag of 0 will be measured. 
+Script that wraps around the `subimage.py` and `stats.py` scripts in the module to create cutouts and measure statistics of sources from a catalog. If a 'Quality_flag' column, which is created and can be manipulated with the [Image-processing]{https://github.com/JonahDW/Image-processing} module, is present in the catalog, this is used to determine which sources are selected, sources with a quality flag of 0 will be measured. 
 
 ```
 usage: catalog_cutouts.py [-h] [-a ALPHA_IMAGE] [-g GAUL] [-s] [-t THRESHOLD]
@@ -29,7 +61,7 @@ optional arguments:
 
 ## visual_classification.py
 
-Script that can be ran after `catalog_cutouts.py` in order to visually inspect the cutouts and assign flags indicating the quality of the source and how well it is represented by the Gaussian catalog. Input is simply the directory containing cutouts files as well as the `source_cutout_stats.csv` file which should have been created by `catalog_cutouts.py`.
+Script that can be ran after `catalog_cutouts.py` in order to visually inspect the cutouts and assign flags indicating the quality of the sources. Input is simply the directory containing cutouts files as well as the `source_cutout_stats.csv` file which should have been created by `catalog_cutouts.py`.
 
 ```
 usage: visual_classification.py [-h] [--append_results [APPEND_RESULTS]]
@@ -49,30 +81,6 @@ optional arguments:
                         another file than the result_name file is specified
                         (which exists in cutout_dir) this file is appended
                         instead and visual inspection is skipped.
-```
-
-## casa_subimage.py
-
-Make a subimage in CASA. Pass coordinates and size, in either pixel or sky coordinates. Standard output is another CASA image, but this can be converted to fits.
-
-```
-usage: casa_subimage.py [-h] [--pixel] [-x X] [-y Y] [--xsize XSIZE]
-                        [--ysize YSIZE] [--fits]
-                        in_image out_image
-
-positional arguments:
-  in_image       Input image, either CASA or fits format.
-  out_image      Name of the output cutout image.
-
-optional arguments:
-  -h, --help     show this help message and exit
-  --pixel        If this option is selected, input should be given in pixel
-                 coordinates (default=sky coordinates).
-  -x X           RA/X central coordinate (default=100).
-  -y Y           DEC/Y central coordinate (default=100).
-  --xsize XSIZE  Size of image in RA/X (default=100).
-  --ysize YSIZE  Size of image in DEC/Y (default=100).
-  --fits         Store the output image as a fits file.
 ```
 
 ## casa_stats.py

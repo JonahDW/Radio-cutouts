@@ -1,0 +1,7 @@
+{
+	"I": "Complex source, use island flux and gravitational mean",
+    "G": "Source well described by Gaussians, use as is",
+    "P": "Single valid Gaussian use peak flux instead",
+    "A": "Artifact"
+}
+

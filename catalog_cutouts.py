@@ -8,8 +8,8 @@ from astropy.io import fits
 from argparse import ArgumentParser
 from pathlib import Path
 
-from casa_subimage import do_subimage
-from casa_stats import Image
+from subimage import CutoutRegion
+from stats import Image
 
 def main():
 
@@ -24,7 +24,7 @@ def main():
     threshold = args.threshold
 
     catalog = Table.read(catalog_file)
-    name = catalog.meta['OBJECT'].replace("'","")
+    name = os.path.basename(catalog_file).rsplit('.',-1)[0]
 
     # Create cutout folder
     out_folder = os.path.join(os.path.dirname(catalog_file),name+'_cutouts')
@@ -44,52 +44,30 @@ def main():
     else:
         gaul = None
 
-    if not stats:
-        print(f'Making cutouts for {len(selected_sources)} sources')
-        for source in selected_sources:
-
-            # Get correct filenames for sources
-            source_filename = source['Source_name'].replace(' ','_')
-            cutout_file = os.path.join(out_folder,source_filename)
-
-            do_subimage(image_file, cutout_file, source['RA'], source['DEC'], 
-                        xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
-
-            os.system(f'rm -r {cutout_file}.image')
-
-            if alpha_file:
-                cutout_file = os.path.join(out_folder,source_filename+'_alpha')
-
-                do_subimage(alpha_file, cutout_file, source['RA'], source['DEC'],
-                            xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
-
-                os.system(f'rm -r {cutout_file}.image')
-
-
     if stats:
-        print(f'Making cutouts and measuring fluxes for {len(selected_sources)} sources')\
-        # Create table with for holding the stats
-
         all_stats = []
-        for source in selected_sources:
 
-            # Get correct filenames for sources
-            source_filename = source['Source_name'].replace(' ','_')
-            cutout_file = os.path.join(out_folder,source_filename)
+    print(f'Making cutouts for {len(selected_sources)} sources')
+    for source in selected_sources:
+        # Get correct filenames for sources
+        source_filename = source['Source_name'].replace(' ','_')
+        cutout_file = os.path.join(out_folder,source_filename)
 
-            do_subimage(image_file, cutout_file, x=source['RA'], y=source['DEC'], 
-                        xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+        # Get correct xsize for declination
+        ysize = 5*source['Maj']
+        xsize = ysize/np.cos(np.deg2rad(source['DEC']))
 
-            if alpha_file:
-                alpha_cutout_file = os.path.join(out_folder,source_filename+'_alpha')
+        # Do cutout
+        region = CutoutRegion(x=source['RA'], y=source['DEC'], 
+                              xsize=xsize, ysize=ysize)
+        region.do_casa_subimage(image_file, cutout_file, fits=True)
 
-                do_subimage(alpha_file, alpha_cutout_file, source['RA'], source['DEC'],
-                            xsize=5*source['Maj'], ysize=5*source['Maj'], pixel=False, fits=True)
+        if alpha_file:
+            alpha_cutout_file = os.path.join(out_folder,source_filename+'_alpha')
+            region.do_casa_subimage(alpha_file, alpha_cutout_file, fits=True)
 
-                alpha_cutout_file = alpha_cutout_file+'.image'
-            else:
-                alpha_cutout_file = None
-
+        # Get statistics
+        if stats:
             rms = source['Isl_rms']
             max_coord = (source['RA_max'], source['DEC_max'])
             gaussians = None
@@ -116,10 +94,11 @@ def main():
             del source_stats['Ismaxpos']
             all_stats.append(source_stats)
 
-            os.system(f'rm -r {cutout_file}.image')
-            if alpha_file:
-                os.system(f'rm -r {alpha_cutout_file}')
+        os.system(f'rm -r {cutout_file}.image')
+        if alpha_file:
+            os.system(f'rm -r {alpha_cutout_file}.image')
 
+    if stats:
         source_table = Table(rows=all_stats)
 
         outfile = os.path.join(out_folder,'source_cutout_stats.csv')
